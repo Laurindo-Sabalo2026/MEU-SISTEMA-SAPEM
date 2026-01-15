@@ -2,38 +2,29 @@ import streamlit as st
 import requests
 import pandas as pd
 
-# 1. Configuração da Página e Estilo Visual (CSS Personalizado)
+# 1. Configuração da Página e Estilo Visual Refinado
 st.set_page_config(page_title="SAPEM | PRO", layout="wide")
 
-# CSS para criar o visual Dark Mode igual à imagem
 st.markdown("""
     <style>
-    /* Fundo principal */
-    .stApp {
-        background-color: #1a1c24;
-        color: #ffffff;
-    }
-    /* Barra lateral */
-    [data-testid="stSidebar"] {
-        background-color: #111217;
-    }
-    /* Cartões de métricas */
-    div[data-testid="stMetricValue"] {
+    .stApp { background-color: #1a1c24; color: #ffffff; }
+    [data-testid="stSidebar"] { background-color: #111217; }
+    
+    /* Melhora o contraste dos cartões de métricas */
+    div[data-testid="metric-container"] {
         background-color: #262932;
-        padding: 15px;
-        border-radius: 10px;
+        padding: 20px;
+        border-radius: 12px;
         border-left: 5px solid #007bff;
+        box-shadow: 2px 2px 10px rgba(0,0,0,0.3);
     }
-    /* Estilo dos títulos */
-    h1, h2, h3 {
+    
+    /* Força o texto das métricas a ficar branco */
+    [data-testid="stMetricLabel"], [data-testid="stMetricValue"] {
         color: #ffffff !important;
-        font-family: 'Inter', sans-serif;
     }
-    /* Tabela personalizada */
-    .stDataFrame {
-        border: 1px solid #343a40;
-        border-radius: 10px;
-    }
+    
+    h1, h2, h3 { font-family: 'Inter', sans-serif; font-weight: 700; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -41,8 +32,8 @@ st.markdown("""
 token = "d63fcb8845c2461da566eed3df05770e"
 headers = {'X-Auth-Token': token}
 
-# 3. Interface - Barra Lateral
-st.sidebar.markdown("<h2 style='text-align: center;'>SAPEM PRO</h2>", unsafe_allow_html=True)
+# 3. Interface - Barra Lateral Estilizada
+st.sidebar.markdown("<h2 style='text-align: center; color: #007bff;'>SAPEM PRO</h2>", unsafe_allow_html=True)
 st.sidebar.markdown("---")
 liga_selecionada = st.sidebar.selectbox(
     "SELECIONE A LIGA",
@@ -55,9 +46,9 @@ config = {
     "La Liga (Espanha)": {"id": "PD", "cor": "#ee1c2e"}
 }
 
-# 4. Cabeçalho Principal
-st.markdown(f"<h1 style='color: {config[liga_selecionada]['cor']};'>INFORMAÇÕES ATUALIZADAS</h1>", unsafe_allow_html=True)
-st.write(f"Campeonato Selecionado: **{liga_selecionada}**")
+# 4. Cabeçalho Principal Dinâmico
+st.markdown(f"<h1 style='color: white;'>INFORMAÇÕES ATUALIZADAS</h1>", unsafe_allow_html=True)
+st.markdown(f"<p style='color: {config[liga_selecionada]['cor']}; font-size: 20px;'>⚽ {liga_selecionada}</p>", unsafe_allow_html=True)
 
 @st.cache_data
 def buscar_dados(codigo):
@@ -65,8 +56,7 @@ def buscar_dados(codigo):
     try:
         res = requests.get(url, headers=headers)
         return res.json()
-    except:
-        return None
+    except: return None
 
 dados = buscar_dados(config[liga_selecionada]["id"])
 
@@ -75,36 +65,33 @@ if dados and 'standings' in dados:
     df = pd.DataFrame(tabela)
     df['Equipa'] = df['team'].apply(lambda x: x['name'])
     
-    # 5. Organização em Colunas (Layout da Imagem)
-    col_menu, col_main = st.columns([0.8, 2])
+    col_tabela, col_analise = st.columns([1, 1.2])
     
-    with col_menu:
-        st.markdown("### 📊 ESTATÍSTICAS")
-        st.dataframe(df[['position', 'Equipa', 'points']].set_index('position'), height=400)
+    with col_tabela:
+        st.markdown("### 📊 CLASSIFICAÇÃO")
+        st.dataframe(df[['position', 'Equipa', 'points']].set_index('position'), use_container_width=True, height=450)
     
-    with col_main:
-        st.markdown("### 🔍 ANÁLISE DE ELITE")
+    with col_analise:
+        st.markdown("### 🔍 ANÁLISE TÁTICA")
         selecao = st.selectbox("Escolha a Equipa:", df['Equipa'].tolist())
         
         info = df[df['Equipa'] == selecao].iloc[0]
-        pj = info['playedGames']
-        gm = info['goalsFor']
-        gs = info['goalsAgainst']
+        pj, gm, gs = info['playedGames'], info['goalsFor'], info['goalsAgainst']
         
-        # Cartões de Métricas (Igual aos quadrados da imagem)
-        c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Vitórias", info['won'])
-        c2.metric("Ataque", f"{gm/pj:.2f}")
-        c3.metric("Defesa", f"{gs/pj:.2f}")
-        c4.metric("Pontos", info['points'])
+        # Grid de métricas igual ao design premium
+        m1, m2 = st.columns(2)
+        m3, m4 = st.columns(2)
+        
+        m1.metric("Vitórias", info['won'])
+        m2.metric("Média Golos", f"{gm/pj:.2f}")
+        m3.metric("Solidez Defensiva", f"{gs/pj:.2f}")
+        m4.metric("Pontos Totais", info['points'])
         
         st.markdown("---")
-        # Alerta de Inteligência (Caixa colorida da imagem)
         aprov = (info['points']/(pj*3))*100
         if aprov > 65:
-            st.info(f"🚀 **RELATÓRIO SAPEM:** O {selecao} apresenta um desempenho de elite. Probabilidade de vitória muito alta nos próximos jogos.")
+            st.success(f"💎 **ELITE SAPEM:** O {selecao} domina o campeonato com {aprov:.1f}% de aproveitamento.")
         else:
-            st.warning(f"⚠️ **RELATÓRIO SAPEM:** O {selecao} apresenta oscilações táticas. Recomenda-se análise de risco.")
-
+            st.info(f"📊 **ANÁLISE:** O {selecao} mantém um ritmo de {aprov:.1f}%.")
 else:
-    st.error("Erro na conexão com os dados. Verifique sua chave API.")
+    st.error("Erro ao carregar dados. Tente novamente em 1 minuto.")
