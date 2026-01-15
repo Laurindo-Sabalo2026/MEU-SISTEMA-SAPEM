@@ -2,43 +2,43 @@ import streamlit as st
 import requests
 import pandas as pd
 
-# 1. Configuração da Página e Estilo Visual Refinado
-st.set_page_config(page_title="SAPEM | PRO", layout="wide")
+# 1. Configuração e Estética SAPEM ELITE
+st.set_page_config(page_title="SAPEM | ELITE 2026", layout="wide")
 
 st.markdown("""
     <style>
     .stApp { background-color: #1a1c24; color: #ffffff; }
-    [data-testid="stSidebar"] { background-color: #111217; }
+    [data-testid="stSidebar"] { background-color: #111217; border-right: 1px solid #343a40; }
     
-    /* Melhora o contraste dos cartões de métricas */
+    /* Cartões de Métricas Estilizados */
     div[data-testid="metric-container"] {
         background-color: #262932;
-        padding: 20px;
-        border-radius: 12px;
-        border-left: 5px solid #007bff;
-        box-shadow: 2px 2px 10px rgba(0,0,0,0.3);
+        padding: 25px;
+        border-radius: 15px;
+        border-bottom: 4px solid #007bff;
+        transition: 0.3s;
     }
+    div[data-testid="metric-container"]:hover { transform: translateY(-5px); background-color: #2e323d; }
     
-    /* Força o texto das métricas a ficar branco */
-    [data-testid="stMetricLabel"], [data-testid="stMetricValue"] {
-        color: #ffffff !important;
-    }
+    [data-testid="stMetricLabel"] { color: #888ea8 !important; font-size: 14px !important; text-transform: uppercase; }
+    [data-testid="stMetricValue"] { color: #ffffff !important; font-weight: 800 !important; }
     
-    h1, h2, h3 { font-family: 'Inter', sans-serif; font-weight: 700; }
+    /* Tabela e Cabeçalhos */
+    h1, h2, h3 { font-family: 'Inter', sans-serif; letter-spacing: -1px; }
+    .stDataFrame { border: 1px solid #343a40; border-radius: 10px; }
     </style>
     """, unsafe_allow_html=True)
 
-# 2. Configurações de Dados
+# 2. Configurações de Acesso
 token = "d63fcb8845c2461da566eed3df05770e"
 headers = {'X-Auth-Token': token}
 
-# 3. Interface - Barra Lateral Estilizada
-st.sidebar.markdown("<h2 style='text-align: center; color: #007bff;'>SAPEM PRO</h2>", unsafe_allow_html=True)
+# 3. Sidebar Profissional
+st.sidebar.markdown("<h1 style='text-align: center; color: #007bff;'>SAPEM</h1>", unsafe_allow_html=True)
+st.sidebar.markdown("<p style='text-align: center; color: #666;'>Inteligência Esportiva v2.0</p>", unsafe_allow_html=True)
 st.sidebar.markdown("---")
-liga_selecionada = st.sidebar.selectbox(
-    "SELECIONE A LIGA",
-    ["Premier League", "Liga Portuguesa", "La Liga (Espanha)"]
-)
+
+liga_nome = st.sidebar.selectbox("MODALIDADE / LIGA", ["Premier League", "Liga Portuguesa", "La Liga (Espanha)"])
 
 config = {
     "Premier League": {"id": "PL", "cor": "#3d195d"},
@@ -46,52 +46,51 @@ config = {
     "La Liga (Espanha)": {"id": "PD", "cor": "#ee1c2e"}
 }
 
-# 4. Cabeçalho Principal Dinâmico
-st.markdown(f"<h1 style='color: white;'>INFORMAÇÕES ATUALIZADAS</h1>", unsafe_allow_html=True)
-st.markdown(f"<p style='color: {config[liga_selecionada]['cor']}; font-size: 20px;'>⚽ {liga_selecionada}</p>", unsafe_allow_html=True)
-
+# 4. Funções de Busca
 @st.cache_data
-def buscar_dados(codigo):
-    url = f"https://api.football-data.org/v4/competitions/{codigo}/standings"
+def carregar_dados_sapem(endpoint):
+    url = f"https://api.football-data.org/v4/competitions/{config[liga_nome]['id']}/{endpoint}"
     try:
-        res = requests.get(url, headers=headers)
-        return res.json()
+        r = requests.get(url, headers=headers)
+        return r.json()
     except: return None
 
-dados = buscar_dados(config[liga_selecionada]["id"])
+# 5. Topo: Próximos Jogos (Baseado na imagem de referência)
+st.markdown(f"### 🗓️ Agenda de Jogos: {liga_nome}")
+jogos_data = carregar_dados_sapem("matches?status=SCHEDULED")
+if jogos_data and 'matches' in jogos_data and len(jogos_data['matches']) > 0:
+    proximo = jogos_data['matches'][0]
+    st.info(f"⚽ **DESTAQUE:** {proximo['homeTeam']['name']} vs {proximo['awayTeam']['name']} | 📅 {proximo['utcDate'][:10]}")
+else:
+    st.write("Sem jogos agendados para os próximos dias.")
 
-if dados and 'standings' in dados:
-    tabela = dados['standings'][0]['table']
-    df = pd.DataFrame(tabela)
+st.markdown("---")
+
+# 6. Conteúdo Principal
+standings = carregar_dados_sapem("standings")
+if standings and 'standings' in standings:
+    df = pd.DataFrame(standings['standings'][0]['table'])
     df['Equipa'] = df['team'].apply(lambda x: x['name'])
     
-    col_tabela, col_analise = st.columns([1, 1.2])
+    col_l, col_r = st.columns([1, 1.2])
     
-    with col_tabela:
-        st.markdown("### 📊 CLASSIFICAÇÃO")
-        st.dataframe(df[['position', 'Equipa', 'points']].set_index('position'), use_container_width=True, height=450)
-    
-    with col_analise:
-        st.markdown("### 🔍 ANÁLISE TÁTICA")
-        selecao = st.selectbox("Escolha a Equipa:", df['Equipa'].tolist())
+    with col_l:
+        st.markdown("### 🏆 CLASSIFICAÇÃO ATUAL")
+        st.dataframe(df[['position', 'Equipa', 'points']].set_index('position'), use_container_width=True, height=400)
         
-        info = df[df['Equipa'] == selecao].iloc[0]
-        pj, gm, gs = info['playedGames'], info['goalsFor'], info['goalsAgainst']
+    with col_r:
+        st.markdown("### 🔍 RAIO-X DE PERFORMANCE")
+        time = st.selectbox("Selecione o Alvo:", df['Equipa'].tolist())
+        stats = df[df['Equipa'] == time].iloc[0]
         
-        # Grid de métricas igual ao design premium
-        m1, m2 = st.columns(2)
-        m3, m4 = st.columns(2)
-        
-        m1.metric("Vitórias", info['won'])
-        m2.metric("Média Golos", f"{gm/pj:.2f}")
-        m3.metric("Solidez Defensiva", f"{gs/pj:.2f}")
-        m4.metric("Pontos Totais", info['points'])
+        m1, m2 = st.columns(2); m3, m4 = st.columns(2)
+        m1.metric("VITÓRIAS", stats['won'])
+        m2.metric("GOLOS / JOGO", f"{stats['goalsFor']/stats['playedGames']:.2f}")
+        m3.metric("DEFESA (MÉDIA)", f"{stats['goalsAgainst']/stats['playedGames']:.2f}")
+        m4.metric("APROVEITAMENTO", f"{(stats['points']/(stats['playedGames']*3))*100:.1f}%")
         
         st.markdown("---")
-        aprov = (info['points']/(pj*3))*100
-        if aprov > 65:
-            st.success(f"💎 **ELITE SAPEM:** O {selecao} domina o campeonato com {aprov:.1f}% de aproveitamento.")
-        else:
-            st.info(f"📊 **ANÁLISE:** O {selecao} mantém um ritmo de {aprov:.1f}%.")
-else:
-    st.error("Erro ao carregar dados. Tente novamente em 1 minuto.")
+        st.success(f"📈 **RELATÓRIO FINAL:** O {time} ocupa a {stats['position']}ª posição com {stats['points']} pontos.")
+
+st.sidebar.markdown("---")
+st.sidebar.caption("© 2026 SAPEM Intelligence Systems")
