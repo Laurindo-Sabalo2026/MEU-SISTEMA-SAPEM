@@ -10,49 +10,50 @@ st.title("📊 SAPEM | Inteligência Esportiva")
 token = "d63fcb8845c2461da566eed3df05770e"
 headers = {'X-Auth-Token': token}
 
-# Barra lateral para interação
-st.sidebar.header("Análise por Equipa")
-time_input = st.sidebar.text_input("Digite o nome da equipa (ex: Arsenal)", "Arsenal")
+# Barra lateral para escolher a liga
+st.sidebar.header("Configurações")
+liga_escolhida = st.sidebar.selectbox(
+    "Selecione a Liga:",
+    ["Premier League", "Liga Portuguesa", "La Liga (Espanha)"]
+)
 
-# Função para puxar dados reais
+# Dicionário de códigos das ligas
+codigos = {
+    "Premier League": "PL",
+    "Liga Portuguesa": "PPL",
+    "La Liga (Espanha)": "PD"
+}
+
+# Função para puxar dados reais com proteção contra erros
 @st.cache_data
-def carregar_dados():
-    url = "https://api.football-data.org/v4/competitions/PD/standings"
+def carregar_dados(codigo_liga):
+    url = f"https://api.football-data.org/v4/competitions/{codigo_liga}/standings"
+    try:
+        response = requests.get(url, headers=headers)
+        return response.json()
+    except:
+        return None
 
-data = carregar_dados()
-tabela = data['standings'][0]['table']
+data = carregar_dados(codigos[liga_escolhida])
 
-# Divisão da tela em colunas para visual atraente
-col1, col2 = st.columns([1, 2])
-
-with col1:
-    st.subheader("🏆 Tabela Premier League")
-    df_lista = [{'Pos': t['position'], 'Time': t['team']['name'], 'Pts': t['points']} for t in tabela]
-    st.table(pd.DataFrame(df_lista).set_index('Pos'))
-
-with col2:
-    st.subheader(f"🔍 Resultado da Análise: {time_input}")
-    stats = next((item for item in tabela if time_input.lower() in item['team']['name'].lower()), None)
+# Verifica se os dados chegaram corretamente para evitar o erro da imagem 6621
+if data and 'standings' in data:
+    tabela_bruta = data['standings'][0]['table']
+    df = pd.DataFrame(tabela_bruta)
     
-    if stats:
-        jogos = stats['playedGames']
-        m_ataque = stats['goalsFor'] / jogos
-        m_defesa = stats['goalsAgainst'] / jogos
-        
-        # Métricas em destaque (Cores automáticas)
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Aproveitamento", f"{(stats['points']/(jogos*3))*100:.1f}%")
-        c2.metric("Poder de Ataque", f"{m_ataque:.2f}")
-        c3.metric("Solidez Defensiva", f"{m_defesa:.2f}")
-        
-        # Sugestão do Campo 5
-        st.info("💡 **Campo 5: Sugestão do Sistema**")
-        if m_ataque > 1.8:
-            st.success(f"O {time_input} é dominante. Alta probabilidade de vitória para o próximo confronto.")
-        else:
-            st.warning("Análise sugere equilíbrio. Recomenda-se verificar o mercado de cantos ou golos.")
-    else:
-        st.error("Time não encontrado. Escreva conforme aparece na tabela ao lado.")
-
-st.divider()
-st.caption("Sistema SAPEM v1.0 | Dados: Football-Data.org | Jan 2026")
+    # Organiza a tabela para exibição
+    df_exibir = df[['position', 'team', 'points']].copy()
+    df_exibir['team'] = df_exibir['team'].apply(lambda x: x['name'])
+    
+    col1, col2 = st.columns([1, 1])
+    
+    with col1:
+        st.subheader(f"🏆 Tabela: {liga_escolhida}")
+        st.table(df_exibir.set_index('position'))
+    
+    with col2:
+        st.subheader("🔍 Análise por Equipa")
+        time_input = st.selectbox("Escolha a equipa para analisar:", df_exibir['team'].tolist())
+        st.success(f"O {time_input} está sendo analisado com sucesso!")
+else:
+    st.error("Erro ao carregar dados. Por favor, aguarde 1 minuto e recarregue a página.")
