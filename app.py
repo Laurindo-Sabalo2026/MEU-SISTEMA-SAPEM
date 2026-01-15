@@ -17,8 +17,7 @@ time_input = st.sidebar.text_input("Digite o nome da equipa (ex: Arsenal)", "Ars
 # Função para puxar dados reais
 @st.cache_data
 def carregar_dados():
-    url = "https://api.football-data.org/v4/competitions/PL/standings"
-    return requests.get(url, headers=headers).json()
+    url = "https://api.football-data.org/v4/competitions/PD/standings"
 
 data = carregar_dados()
 tabela = data['standings'][0]['table']
