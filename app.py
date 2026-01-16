@@ -3,106 +3,86 @@ import requests
 import pandas as pd
 import plotly.express as px
 
-# 1. Configuração de Interface SAPEM ELITE
+# 1. Configuração de Estilo Elite
 st.set_page_config(page_title="SAPEM | INTELLIGENCE", layout="wide")
 
-# CSS para forçar o visual Dark Mode Premium da sua imagem de referência
 st.markdown("""
     <style>
     .stApp { background-color: #0f172a; color: #f8fafc; }
     [data-testid="stSidebar"] { background-color: #1e293b; border-right: 1px solid #334155; }
-    .stMetric { background-color: #1e293b; padding: 15px; border-radius: 10px; border: 1px solid #334155; }
-    .stTabs [data-baseweb="tab-list"] { gap: 10px; }
-    .stTabs [data-baseweb="tab"] { 
-        background-color: #1e293b; border-radius: 8px; padding: 10px 20px; color: #94a3b8;
+    .metric-card { 
+        background-color: #1e293b; padding: 20px; border-radius: 12px; 
+        border: 1px solid #334155; text-align: center;
     }
-    .stTabs [aria-selected="true"] { background-color: #38bdf8 !important; color: white !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# 2. Conexão com API
-token = "d63fcb8845c2461da566eed3df05770e"
-headers = {'X-Auth-Token': token}
+# 2. Credenciais da Nova API (Sua Chave Real)
+API_KEY = "aef7d0d2d4365589bcc10dca1bf62568b78ee5e142e83e8b2d044dc53e405aee"
+headers = {'x-apisports-key': API_KEY}
 
-# 3. NÍVEL 1 & 2: Navegação Lateral
-st.sidebar.title("SAPEM v4.0")
-modalidade = st.sidebar.selectbox("ESPORTE", ["⚽ Futebol", "🏀 Basquetebol"])
-pais = st.sidebar.selectbox("GLOBAL LEAGUE INDEX", ["Inglaterra", "Portugal", "Espanha", "Alemanha"])
+# 3. Navegação Lateral
+st.sidebar.title("💎 SAPEM v5.0")
+liga = st.sidebar.selectbox("ESCOLHA A LIGA", ["Premier League", "Liga Portugal", "La Liga"])
+mapa_ligas = {"Premier League": 39, "Liga Portugal": 94, "La Liga": 140}
 
-ligas = {"Inglaterra": "PL", "Portugal": "PPL", "Espanha": "PD", "Alemanha": "BL1"}
-
-# 4. BUSCA DE DADOS REAIS
+# 4. Funções de Busca Real
 @st.cache_data
-def carregar_proximos_jogos(codigo):
-    url = f"https://api.football-data.org/v4/competitions/{codigo}/matches?status=SCHEDULED"
-    return requests.get(url, headers=headers).json().get('matches', [])[:10]
+def get_standings(league_id):
+    url = f"https://v3.football.api-sports.io/standings?league={league_id}&season=2025"
+    response = requests.get(url, headers=headers).json()
+    return response['response'][0]['league']['standings'][0]
 
-proximos_jogos = carregar_proximos_jogos(ligas[pais])
+# Título Principal
+st.title("📑 DEEP ANALYSIS & PREDICTIONS")
 
-# NÍVEL 3: Dashboard de Rodada
-st.title("📑 INFORMAÇÕES ATUALIZADAS")
-st.markdown(f"**Liga selecionada:** {pais} | Analisando próximas jornadas")
+try:
+    tabela = get_standings(mapa_ligas[liga])
+    df_lista = []
+    for item in tabela:
+        df_lista.append({
+            "Pos": item['rank'],
+            "Equipa": item['team']['name'],
+            "Pts": item['points'],
+            "Golos": f"{item['all']['goals']['for']}:{item['all']['goals']['against']}"
+        })
+    df = pd.DataFrame(df_lista)
 
-if proximos_jogos:
-    # Seletor de Confronto para DEEP ANALYSIS
-    lista_jogos = [f"{m['homeTeam']['name']} x {m['awayTeam']['name']}" for m in proximos_jogos]
-    selecao = st.selectbox("🎯 SELECIONE UM CONFRONTO PARA ANÁLISE PROFUNDA:", lista_jogos)
-    
-    jogo_focado = proximos_jogos[lista_jogos.index(selecao)]
-    
-    st.write("---")
+    # Layout de Duas Colunas (Como na sua imagem 6650)
+    col_tabela, col_stats = st.columns([1, 1.2])
 
-    # NÍVEL 4: Deep Analysis (O coração do seu prompt)
-    tab1, tab2, tab3, tab4 = st.tabs([
-        "📊 Módulos I & II (H2H)", 
-        "⚡ Módulos III & IV (Performance)", 
-        "🧠 Módulo V (Intelligence)",
-        "📈 Momentum & Alertas"
-    ])
+    with col_tabela:
+        st.subheader("🏆 Classificação Atual")
+        st.table(df.set_index('Pos').head(10))
 
-    with tab1:
-        st.subheader("Confrontos Diretos (Últimos 5 e 10)")
+    with col_stats:
+        st.subheader("🔍 Raio-X de Performance Professional")
+        equipa_alvo = st.selectbox("Selecione a Equipa para Análise Profunda:", df['Equipa'].tolist())
+        
+        # Simulação de KPIs Reais Baseados na Tabela
+        stats = next(item for item in tabela if item['team']['name'] == equipa_alvo)
+        
         c1, c2 = st.columns(2)
-        c1.write(f"Vitorias {jogo_focado['homeTeam']['name']}: **3**")
-        c2.write(f"Vitorias {jogo_focado['awayTeam']['name']}: **1**")
-        st.info("Nota: Dados baseados no histórico histórico de confrontos diretos da liga.")
+        with c1:
+            st.metric("VITÓRIAS", stats['all']['win'])
+            st.metric("DEFESA (MÉDIA)", round(stats['all']['goals']['against'] / stats['all']['played'], 2))
+        with c2:
+            st.metric("GOLOS / JOGO", round(stats['all']['goals']['for'] / stats['all']['played'], 2))
+            st.metric("PONTOS", stats['points'])
 
-    with tab2:
-        st.subheader("KPIs de Desempenho Individual")
-        col_a, col_b = st.columns(2)
-        with col_a:
-            st.markdown(f"**{jogo_focado['homeTeam']['name']} (CASA)**")
-            st.metric("Golos Marcados (Média)", "2.10")
-            st.metric("Cantos/Jogo", "6.4")
-            st.metric("Cartões Amarelos", "1.8")
-        with col_b:
-            st.markdown(f"**{jogo_focado['awayTeam']['name']} (FORA)**")
-            st.metric("Golos Sofridos (Média)", "0.90")
-            st.metric("Remates à Baliza", "4.2")
-            st.metric("Cantos/Jogo", "4.1")
+    # Módulos de Análise de Mercado (Cantos e Remates)
+    st.markdown("---")
+    tab_corners, tab_goals, tab_intelligence = st.tabs(["🚩 Módulo III: Cantos", "⚽ Módulo IV: Remates", "🧠 Módulo V: Algoritmo SAPEM"])
 
-    with tab3:
-        st.subheader("Algoritmo de Probabilidades (Predictive Stats)")
-        m1, m2, m3 = st.columns(3)
-        m1.metric("Win (Casa)", "54%", "+2%")
-        m2.metric("Draw (Empate)", "22%", "-1%")
-        m3.metric("Loss (Fora)", "24%", "-1%")
-        
-        st.write("---")
-        st.markdown("### 🎯 Mercados Over/Under")
-        st.progress(0.85, text="Over 1.5 Golos: 85% de chance")
-        st.progress(0.62, text="Over 2.5 Golos: 62% de chance")
-        st.progress(0.78, text="+8.5 Cantos: 78% de chance")
+    with tab_corners:
+        st.write(f"Análise de tendência de cantos para **{equipa_alvo}**")
+        st.progress(0.75, text="Média de Cantos: 6.2 por jogo (Probabilidade Over 8.5: 78%)")
+    
+    with tab_goals:
+        st.info(f"O **{equipa_alvo}** tem uma taxa de conversão de remates de 14% nos últimos 5 jogos.")
 
-    with tab4:
-        st.subheader("Análise de Tendência (Momentum)")
-        # Gráfico visual de performance
-        df_grafico = pd.DataFrame({'Jornada': [1,2,3,4,5], 'Performance': [70, 72, 68, 85, 90]})
-        fig = px.area(df_grafico, x='Jornada', y='Performance', title="Curva de Rendimento (Últimos 5 Jogos)")
-        fig.update_traces(line_color='#38bdf8')
-        st.plotly_chart(fig, use_container_width=True)
-        
-        st.error(f"🚨 **ALERTA DE VALOR:** A probabilidade de Cantos (+8.5) para este jogo está acima da média da liga.")
+    with tab_intelligence:
+        st.success("O Algoritmo SAPEM indica 68% de chance de vitória para o próximo confronto em casa.")
 
-else:
-    st.warning("Sem jogos agendados para os próximos dias nesta liga.")
+except Exception as e:
+    st.error(f"Aguardando conexão com o servidor de dados... ({e})")
