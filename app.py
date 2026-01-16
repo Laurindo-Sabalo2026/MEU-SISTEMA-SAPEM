@@ -2,76 +2,44 @@ import streamlit as st
 import requests
 import pandas as pd
 
-# 1. CONFIGURAÇÃO DA PÁGINA
-st.set_page_config(page_title="SAPEM | SISTEMA OFICIAL", layout="wide")
+st.set_page_config(page_title="SAPEM | FORÇA BRUTA", layout="wide")
 
-# 2. SUA CHAVE MESTRA DEFINITIVA
-# Chave extraída da sua Captura de Tela (6722)
-CHAVE_API = "aef7d0d2d4365589bcc10dca1bf62568b78ee5e142e83e8b2d044dc53e405aee"
+# Chave confirmada
+CHAVE = "aef7d0d2d4365589bcc10dca1bf62568b78ee5e142e83e8b2d044dc53e405aee"
+HEADERS = {'x-apisports-key': CHAVE}
 
-# 3. CABEÇALHO OFICIAL (Formato exigido pela API-Sports)
-HEADERS = {
-    'x-apisports-key': CHAVE_API
-}
+st.sidebar.title("💎 SAPEM v5.9")
+liga = st.sidebar.selectbox("LIGA", ["Premier League", "La Liga", "Liga Portugal"])
+ids = {"Premier League": 39, "La Liga": 140, "Liga Portugal": 94}
 
-# 4. INTERFACE LATERAL (Sidebar)
-st.sidebar.title("💎 SAPEM v5.8")
-st.sidebar.markdown("---")
-liga_selecionada = st.sidebar.selectbox("ESCOLHA A LIGA", ["Premier League", "La Liga", "Liga Portugal"])
+st.title("📑 ACESSO DIRETO AOS DADOS")
 
-# Mapeamento de IDs para busca
-mapa_ligas = {"Premier League": 39, "La Liga": 140, "Liga Portugal": 94}
-id_liga = mapa_ligas[liga_selecionada]
-
-st.title("📑 PAINEL DE ANÁLISE SAPEM")
-
-# 5. FUNÇÃO PARA BUSCAR DADOS
-def buscar_dados(endpoint):
-    url = f"https://v3.football.api-sports.io/{endpoint}"
-    try:
-        # Timeout de 15 segundos para evitar travamentos
-        response = requests.get(url, headers=HEADERS, timeout=15)
-        return response.json()
-    except Exception as e:
-        return {"errors": {"conexao": str(e)}}
-
-# 6. BOTÃO DE ATIVAÇÃO
-if st.button('🚀 ATIVAR CONEXÃO COM O SERVIDOR'):
-    with st.spinner('Validando acesso aos dados...'):
-        # Verifica primeiro o status da conta
-        status = buscar_dados("status")
+# Botão que ignora o teste de status e vai direto ao que importa
+if st.button('🚀 CARREGAR DADOS DIRETAMENTE'):
+    with st.spinner('Acedendo ao banco de dados principal...'):
+        # Pulamos o teste de "status" e vamos direto para a classificação de 2024
+        url = f"https://v3.football.api-sports.io/standings?league={ids[liga]}&season=2024"
         
-        if status and status.get('response') and not status.get('errors'):
-            # Conexão estabelecida com sucesso
-            usuario = status['response']['account']['firstname']
-            st.success(f"✅ SUCESSO! Sistema SAPEM Conectado para: {usuario}")
+        try:
+            res = requests.get(url, headers=HEADERS, timeout=20).json()
             
-            # Busca a Classificação da Temporada Atual (2023/2024 conforme disponibilidade)
-            dados_tabela = buscar_dados(f"standings?league={id_liga}&season=2023")
-            
-            if dados_tabela.get('response'):
-                try:
-                    lista = dados_tabela['response'][0]['league']['standings'][0]
-                    df = pd.DataFrame([{
-                        "Pos": i['rank'], 
-                        "Equipa": i['team']['name'], 
-                        "J": i['all']['played'], 
-                        "Pts": i['points']
-                    } for i in lista])
-                    
-                    st.subheader(f"🏆 Classificação: {liga_selecionada}")
-                    st.table(df.set_index('Pos'))
-                    st.balloons()
-                except Exception:
-                    st.warning("Dados recebidos, mas o formato da tabela ainda está a carregar.")
-        else:
-            # Caso o servidor ainda recuse a chave
-            st.error("❌ O SERVIDOR AINDA NÃO RECONHECEU A SUA CHAVE")
-            st.info("Pressione o botão novamente em 1 minuto. A ativação por e-mail pode levar este tempo para chegar aos servidores de dados.")
-            if status:
-                st.json(status)
+            if res.get('response'):
+                dados = res['response'][0]['league']['standings'][0]
+                df = pd.DataFrame([{
+                    "Pos": i['rank'], 
+                    "Equipa": i['team']['name'], 
+                    "Pts": i['points'],
+                    "J": i['all']['played']
+                } for i in dados])
+                
+                st.success(f"✅ DADOS CONECTADOS COM SUCESSO!")
+                st.table(df.set_index('Pos'))
+                st.balloons()
+            else:
+                # Se ainda falhar, mostramos o erro real dos dados
+                st.error("O servidor de dados ainda não reconheceu a sua chave.")
+                st.json(res)
+        except Exception as e:
+            st.error(f"Erro de conexão: {e}")
 
-# Rodapé de Status
-st.sidebar.markdown("---")
-st.sidebar.success("Status: Conta Ativada via E-mail ✅")
-st.sidebar.caption("Campo IP: Limpo no Painel ✅")
+st.sidebar.warning("Nota: Se falhar na Premier League, tente mudar para 'La Liga' para testar outro servidor.")
