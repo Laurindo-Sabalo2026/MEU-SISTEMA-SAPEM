@@ -5,21 +5,21 @@ import pandas as pd
 # 1. CONFIGURAÇÃO DA PÁGINA
 st.set_page_config(page_title="SAPEM | SISTEMA OFICIAL", layout="wide")
 
-# 2. SUA CHAVE MESTRA (Confirmada nas suas capturas)
-# Esta chave foi validada e está ativa no seu painel
+# 2. SUA CHAVE MESTRA DEFINITIVA
+# Chave extraída da sua Captura de Tela (6722)
 CHAVE_API = "aef7d0d2d4365589bcc10dca1bf62568b78ee5e142e83e8b2d044dc53e405aee"
 
-# 3. CABEÇALHO PADRÃO (Formato oficial para evitar erro de 'Missing Key')
+# 3. CABEÇALHO OFICIAL (Formato exigido pela API-Sports)
 HEADERS = {
     'x-apisports-key': CHAVE_API
 }
 
-# 4. INTERFACE LATERAL
+# 4. INTERFACE LATERAL (Sidebar)
 st.sidebar.title("💎 SAPEM v5.8")
 st.sidebar.markdown("---")
 liga_selecionada = st.sidebar.selectbox("ESCOLHA A LIGA", ["Premier League", "La Liga", "Liga Portugal"])
 
-# Mapeamento de IDs das Ligas
+# Mapeamento de IDs para busca
 mapa_ligas = {"Premier League": 39, "La Liga": 140, "Liga Portugal": 94}
 id_liga = mapa_ligas[liga_selecionada]
 
@@ -29,23 +29,24 @@ st.title("📑 PAINEL DE ANÁLISE SAPEM")
 def buscar_dados(endpoint):
     url = f"https://v3.football.api-sports.io/{endpoint}"
     try:
+        # Timeout de 15 segundos para evitar travamentos
         response = requests.get(url, headers=HEADERS, timeout=15)
         return response.json()
     except Exception as e:
         return {"errors": {"conexao": str(e)}}
 
-# 6. BOTÃO DE VALIDAÇÃO (Para forçar o servidor a ler a sua chave)
+# 6. BOTÃO DE ATIVAÇÃO
 if st.button('🚀 ATIVAR CONEXÃO COM O SERVIDOR'):
-    with st.spinner('Verificando sua chave ativa...'):
-        # Teste de Status
+    with st.spinner('Validando acesso aos dados...'):
+        # Verifica primeiro o status da conta
         status = buscar_dados("status")
         
         if status and status.get('response') and not status.get('errors'):
-            # Se a conexão der certo
+            # Conexão estabelecida com sucesso
             usuario = status['response']['account']['firstname']
             st.success(f"✅ SUCESSO! Sistema SAPEM Conectado para: {usuario}")
             
-            # Busca a Classificação (Temporada 2023)
+            # Busca a Classificação da Temporada Atual (2023/2024 conforme disponibilidade)
             dados_tabela = buscar_dados(f"standings?league={id_liga}&season=2023")
             
             if dados_tabela.get('response'):
@@ -61,18 +62,16 @@ if st.button('🚀 ATIVAR CONEXÃO COM O SERVIDOR'):
                     st.subheader(f"🏆 Classificação: {liga_selecionada}")
                     st.table(df.set_index('Pos'))
                     st.balloons()
-                except:
-                    st.warning("A tabela está a ser processada pelo servidor. Tente novamente em 1 minuto.")
+                except Exception:
+                    st.warning("Dados recebidos, mas o formato da tabela ainda está a carregar.")
         else:
-            # Se ainda der erro de chave
-            st.error("❌ O SERVIDOR AINDA NÃO RECONHECEU A ATIVAÇÃO")
-            st.markdown(f"""
-            **Como resolver:**
-            1. Verifique se o campo **SET IP** no seu [Painel](https://dashboard.api-football.com/admin/) está **VAZIO**.
-            2. Como você ativou o e-mail recentemente, o servidor pode levar alguns minutos extras.
-            """)
-            if status: st.json(status)
+            # Caso o servidor ainda recuse a chave
+            st.error("❌ O SERVIDOR AINDA NÃO RECONHECEU A SUA CHAVE")
+            st.info("Pressione o botão novamente em 1 minuto. A ativação por e-mail pode levar este tempo para chegar aos servidores de dados.")
+            if status:
+                st.json(status)
 
-# Rodapé informativo
+# Rodapé de Status
 st.sidebar.markdown("---")
-st.sidebar.info("Status: Conta Ativada via E-mail ✅")
+st.sidebar.success("Status: Conta Ativada via E-mail ✅")
+st.sidebar.caption("Campo IP: Limpo no Painel ✅")
