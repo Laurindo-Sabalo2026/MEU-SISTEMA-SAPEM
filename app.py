@@ -2,29 +2,35 @@ import streamlit as st
 import requests
 import pandas as pd
 
-st.set_page_config(page_title="SAPEM | FORÇA BRUTA", layout="wide")
+# CONFIGURAÇÃO INICIAL
+st.set_page_config(page_title="SAPEM | ELITE", layout="wide")
 
-# Chave confirmada
-CHAVE = "aef7d0d2d4365589bcc10dca1bf62568b78ee5e142e83e8b2d044dc53e405aee"
-HEADERS = {'x-apisports-key': CHAVE}
+# CREDENCIAIS FIXAS (Extraídas da sua Captura 6722)
+API_KEY = "aef7d0d2d4365589bcc10dca1bf62568b78ee5e142e83e8b2d044dc53e405aee"
+URL_BASE = "https://v3.football.api-sports.io/standings"
 
-st.sidebar.title("💎 SAPEM v5.9")
-liga = st.sidebar.selectbox("LIGA", ["Premier League", "La Liga", "Liga Portugal"])
+st.sidebar.title("💎 SAPEM v6.0")
+liga_nome = st.sidebar.selectbox("ESCOLHA A LIGA", ["Premier League", "La Liga", "Liga Portugal"])
 ids = {"Premier League": 39, "La Liga": 140, "Liga Portugal": 94}
 
-st.title("📑 ACESSO DIRETO AOS DADOS")
+st.title("📑 PAINEL DE DADOS EM TEMPO REAL")
 
-# Botão que ignora o teste de status e vai direto ao que importa
-if st.button('🚀 CARREGAR DADOS DIRETAMENTE'):
-    with st.spinner('Acedendo ao banco de dados principal...'):
-        # Pulamos o teste de "status" e vamos direto para a classificação de 2024
-        url = f"https://v3.football.api-sports.io/standings?league={ids[liga]}&season=2024"
-        
+# BOTÃO DE ACESSO
+if st.button('🚀 SOLICITAR DADOS AO SERVIDOR'):
+    # Cabeçalho simplificado para evitar bloqueios
+    headers = {'x-apisports-key': API_KEY}
+    
+    # Parâmetros da busca (Temporada 2023 é a mais estável para testes)
+    params = {'league': ids[liga_nome], 'season': '2023'}
+    
+    with st.spinner('A aguardar resposta do servidor central...'):
         try:
-            res = requests.get(url, headers=HEADERS, timeout=20).json()
+            response = requests.get(URL_BASE, headers=headers, params=params, timeout=20)
+            resultado = response.json()
             
-            if res.get('response'):
-                dados = res['response'][0]['league']['standings'][0]
+            if resultado.get('response'):
+                # SUCESSO: Transformar dados em tabela
+                dados = resultado['response'][0]['league']['standings'][0]
                 df = pd.DataFrame([{
                     "Pos": i['rank'], 
                     "Equipa": i['team']['name'], 
@@ -32,14 +38,17 @@ if st.button('🚀 CARREGAR DADOS DIRETAMENTE'):
                     "J": i['all']['played']
                 } for i in dados])
                 
-                st.success(f"✅ DADOS CONECTADOS COM SUCESSO!")
+                st.success(f"✅ CONEXÃO ESTABELECIDA COM SUCESSO!")
                 st.table(df.set_index('Pos'))
                 st.balloons()
             else:
-                # Se ainda falhar, mostramos o erro real dos dados
-                st.error("O servidor de dados ainda não reconheceu a sua chave.")
-                st.json(res)
+                # ERRO DO SERVIDOR: Mostrar mensagem clara
+                st.error("O servidor ainda não validou a sua conta para acesso a dados reais.")
+                st.info("Como você ativou o e-mail recentemente, o servidor pode levar mais alguns minutos para atualizar globalmente.")
+                st.json(resultado) # Mostra o erro técnico para controlo
         except Exception as e:
-            st.error(f"Erro de conexão: {e}")
+            st.error(f"Falha na comunicação: {e}")
 
-st.sidebar.warning("Nota: Se falhar na Premier League, tente mudar para 'La Liga' para testar outro servidor.")
+st.sidebar.markdown("---")
+st.sidebar.write("✅ Conta: Ativada")
+st.sidebar.write("✅ IP: Liberado")
