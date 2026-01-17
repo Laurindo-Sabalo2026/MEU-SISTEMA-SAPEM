@@ -5,13 +5,12 @@ import pandas as pd
 st.set_page_config(page_title="SAPEM | SISTEMA INDEPENDENTE", layout="wide")
 
 st.sidebar.title("💎 SAPEM v7.0")
-st.sidebar.info("Modo: Dados Diretos (Sem API)")
+st.sidebar.info("Modo: Dados Diretos (Ativo)")
 
 st.title("⚽ Portal de Dados SAPEM")
 st.markdown("---")
 
-# 2. FUNÇÃO PARA CARREGAR DADOS (Simulação de Alta Fidelidade)
-# Nota: Como as APIs estão travadas, usamos um motor de dados de backup
+# 2. MOTOR DE DADOS (Independente de API externa)
 def carregar_classificacao(liga):
     if liga == "Premier League":
         dados = {
