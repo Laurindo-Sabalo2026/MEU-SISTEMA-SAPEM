@@ -1,58 +1,67 @@
 import streamlit as st
 import pandas as pd
+import requests
+from io import StringIO
 
-# 1. CONFIGURAÇÃO INICIAL
+# 1. CONFIGURAÇÃO DE PÁGINA
 st.set_page_config(page_title="PORTAL SAPEM", layout="wide")
 
-# 2. LINK DA SUA CAPTURA 6820 (CORRIGIDO COM ASPAS)
-URL_DADOS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQE8YnGNNpBx1bdES3fZAS1kKoQiW2q66WuKy-EO3Zb_W61zKRuO7JuoTebY9UTfim1J7MDfnrmRb3p/pub?output=csv"
+# 2. SEU LINK DA CAPTURA 6820
+URL_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQE8YnGNNpBx1bdES3fZAS1kKoQiW2q66WuKy-EO3Zb_W61zKRuO7JuoTebY9UTfim1J7MDfnrmRb3p/pub?output=csv"
 
 @st.cache_data(ttl=5)
-def puxar_dados():
+def carregar_dados_seguro():
     try:
-        # Lê o CSV da sua planilha
-        df = pd.read_csv(URL_DADOS)
-        df.columns = [str(c).strip() for c in df.columns]
-        return df
-    except Exception as e:
+        # Usa o 'requests' para simular um navegador e evitar o bloqueio
+        response = requests.get(URL_CSV, timeout=10)
+        if response.status_code == 200:
+            # Transforma o texto recebido em uma tabela (DataFrame)
+            dados_brutos = StringIO(response.text)
+            df = pd.read_csv(dados_brutos)
+            df.columns = [str(c).strip() for c in df.columns]
+            return df
+        else:
+            return None
+    except Exception:
         return None
 
-df_principal = puxar_dados()
+# Tenta carregar os dados
+df_sapem = carregar_dados_seguro()
 
-# 3. LAYOUT DO PORTAL
+# 3. INTERFACE VISUAL
 st.title("💎 PORTAL SAPEM PROFISSIONAL")
-st.markdown("---")
+st.divider()
 
-# MENU LATERAL
-menu = st.sidebar.radio("Navegar para:", ["📊 Tabela de Classificação", "🔬 Deep Analysis (KPIs)"])
+# Menu Lateral
+menu = st.sidebar.radio("Navegar:", ["📊 Classificação", "🔬 Deep Analysis"])
 
-if menu == "📊 Tabela de Classificação":
-    st.subheader("🏆 Classificação em Tempo Real")
+if menu == "📊 Classificação":
+    st.subheader("🏆 Dados Sincronizados (Google Sheets)")
     
-    if df_principal is not None:
-        st.dataframe(df_principal, use_container_width=True, hide_index=True)
+    if df_sapem is not None:
+        # Exibe a tabela da sua Captura 6802
+        st.dataframe(df_sapem, use_container_width=True, hide_index=True)
+        st.success("✅ Conexão estabelecida com sucesso!")
     else:
-        st.error("❌ Erro de Conexão: Verifique se a planilha está 'Publicada na Web' como CSV.")
+        st.error("❌ Erro de Sincronização.")
+        st.info("DICA: Vá ao Google Sheets, clique em 'Publicar na Web' e verifique se selecionou 'CSV'.")
 
-elif menu == "🔬 Deep Analysis (KPIs)":
-    st.subheader("🔍 Módulos de Performance")
-    
-    if df_principal is not None and "Equipa" in df_principal.columns:
-        lista_equipes = df_principal["Equipa"].unique()
-        escolha = st.selectbox("Selecione a Equipa", lista_equipes)
+else:
+    st.subheader("🔍 KPIs de Desempenho")
+    if df_sapem is not None and "Equipa" in df_sapem.columns:
+        equipa = st.selectbox("Selecione a Equipa", df_sapem["Equipa"].unique())
+        stats = df_sapem[df_sapem["Equipa"] == equipa].iloc[0]
         
-        info = df_principal[df_principal["Equipa"] == escolha].iloc[0]
-        
-        # Mostra as métricas da sua planilha (Captura 6802)
+        # Painel de métricas
         c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Cantos", info.get("Cantos", 0))
-        c2.metric("Cartões", info.get("Cartões", 0))
-        c3.metric("Remates", info.get("Remates", 0))
-        c4.metric("Golos M.", info.get("Golos Marcados", 0))
+        c1.metric("Cantos", stats.get("Cantos", 0))
+        c2.metric("Cartões", stats.get("Cartões", 0))
+        c3.metric("Remates", stats.get("Remates", 0))
+        c4.metric("Golos M.", stats.get("Golos Marcados", 0))
     else:
-        st.warning("Conecte a planilha para habilitar a análise.")
+        st.warning("Aguardando dados para análise.")
 
-# BOTÃO DE RECARGA
+# Botão de atualização
 if st.sidebar.button("🔄 Forçar Atualização"):
     st.cache_data.clear()
     st.rerun()
