@@ -1,86 +1,97 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+import time
 
-# 1. CONFIGURAÇÃO BÁSICA (Sem CSS complexo para evitar erros de tradução)
+# 1. BLOQUEIO TÉCNICO CONTRA TRADUTORES (Captura 6813)
 st.set_page_config(page_title="SAPEM BI", layout="wide")
+st.markdown('<html lang="pt-PT">', unsafe_allow_html=True) 
 
-st.title("💎 SAPEM | BUSINESS INTELLIGENCE")
-
-# 2. CONEXÃO DIRETA COM OS DADOS (Link da Captura 6794)
+# 2. CONEXÃO COM A PLANILHA (Link da Captura 6794)
 URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQE8YnGNNpBx1bdES3fZAS1kKoQiW2q66WuKy-EO3Zb_W61zKRuO7JuoTebY9UTfim1J7MDfnrmRb3p/pub?output=csv"
 
 @st.cache_data(ttl=5)
-def load_sapem_data():
+def load_data_secure():
     try:
-        # Carrega os dados e limpa nomes de colunas
-        data = pd.read_csv(URL)
-        data.columns = [str(c).strip() for c in data.columns]
-        return data
-    except Exception as e:
-        return pd.DataFrame({"Equipa": ["Erro de Conexão"], "Pts": [0]})
+        # Lê o CSV e força a limpeza de nomes de colunas
+        df_raw = pd.read_csv(URL)
+        df_raw.columns = [str(c).strip() for c in df_raw.columns]
+        return df_raw
+    except:
+        # Retorna dados fictícios apenas para não quebrar a interface se a rede falhar
+        return pd.DataFrame({"Equipa": ["Sincronizando..."], "Pts": [0]})
 
-df = load_sapem_data()
+df = load_data_secure()
 
-# 3. BARRA LATERAL (Navegação por Níveis)
-st.sidebar.header("🎮 MENU DE CONTROLO")
-esporte = st.sidebar.selectbox("Nível 1: Esporte", ["Futebol ⚽", "Basquetebol 🏀"])
-liga = st.sidebar.selectbox("Nível 2: Liga", ["Liga Portugal", "Premier League", "Girabola"])
-aba = st.sidebar.radio("Nível 3: Análise", ["📅 Geral", "🔬 Deep Analysis (H2H)", "🌡️ Clima & Tendência"])
+# --- INTERFACE ---
+st.title("💎 SAPEM | BUSINESS INTELLIGENCE")
+
+# MENU LATERAL ORGANIZADO
+with st.sidebar:
+    st.header("🎮 CONTROL PANEL")
+    esporte = st.selectbox("Modalidade", ["Futebol ⚽", "Basquetebol 🏀"])
+    menu = st.radio("Módulos", ["📊 Tabela Geral", "🔬 Análise Profunda (KPIs)", "🌡️ Fatores Externos"])
+    if st.button("🔄 Atualizar Dados"):
+        st.cache_data.clear()
+        st.rerun()
 
 # ---------------------------------------------------------
-# MÓDULO: GERAL (Tabela Completa)
+# MÓDULO: TABELA GERAL (Captura 6814)
 # ---------------------------------------------------------
-if aba == "📅 Geral":
-    st.subheader(f"🏟️ Tabela Geral: {liga}")
-    st.dataframe(df, use_container_width=True, hide_index=True)
+if menu == "📊 Tabela Geral":
+    st.subheader("🏟️ Classificação Geral do Sistema")
+    if df["Equipa"].iloc[0] == "Sincronizando...":
+        st.warning("O sistema está a tentar ler o seu Google Sheets. Aguarde 5 segundos.")
+    else:
+        st.dataframe(df, use_container_width=True, hide_index=True)
 
 # ---------------------------------------------------------
-# MÓDULO: DEEP ANALYSIS (Módulos III, IV e V)
+# MÓDULO: ANÁLISE PROFUNDA (Capturas 6809 e 6812)
 # ---------------------------------------------------------
-elif aba == "🔬 Deep Analysis (H2H)":
-    st.subheader("🔍 Painel de Análise Profunda")
+elif menu == "🔬 Análise Profunda (KPIs)":
+    st.subheader("🔍 Módulos I-V: KPIs de Performance")
     
-    if "Equipa" in df.columns:
-        lista = df["Equipa"].unique()
+    if "Equipa" in df.columns and len(df) > 1:
+        times = sorted(df["Equipa"].unique())
         c1, c2 = st.columns(2)
-        with c1: t_casa = st.selectbox("Equipa Casa", lista, key="casa")
-        with c2: t_fora = st.selectbox("Equipa Fora", lista, key="fora")
+        with c1: t_casa = st.selectbox("Equipa Casa", times, key="c")
+        with c2: t_fora = st.selectbox("Equipa Fora", times, key="f")
 
-        tab_perf, tab_ia = st.tabs(["📊 Performance Reais", "🎯 Probabilidades"])
+        tab1, tab2 = st.tabs(["📈 Estatísticas Reais", "🤖 Previsão IA"])
 
-        with tab_perf:
-            def plot_metrics(time):
-                row = df[df["Equipa"] == time].iloc[0]
-                st.write(f"### {time}")
-                # Busca as colunas da sua Captura 6802
-                m1, m2, m3, m4 = st.columns(4)
-                m1.metric("Cantos", row.get("Cantos", 0))
-                m2.metric("Cartões", row.get("Cartões", 0))
-                m3.metric("Remates", row.get("Remates", 0))
-                m4.metric("Golos M.", row.get("Golos Marcados", 0))
+        with tab1:
+            def render_kpis(equipa_nome):
+                # Localiza os dados da equipa na sua planilha (Captura 6802)
+                row = df[df["Equipa"] == equipa_nome].iloc[0].fillna(0)
+                st.markdown(f"**{equipa_nome}**")
+                colA, colB, colC, colD = st.columns(4)
+                colA.metric("Cantos", f"{row.get('Cantos', 0)}")
+                colB.metric("Cartões", f"{row.get('Cartões', 0)}")
+                colC.metric("Remates", f"{row.get('Remates', 0)}")
+                colD.metric("Golos M.", f"{row.get('Golos Marcados', 0)}")
             
-            plot_metrics(t_casa)
+            render_kpis(t_casa)
             st.divider()
-            plot_metrics(t_fora)
-            
-        with tab_ia:
-            st.write("### Análise Preditiva (IA)")
-            pts_c = df[df["Equipa"] == t_casa]["Pts"].iloc[0]
-            pts_f = df[df["Equipa"] == t_fora]["Pts"].iloc[0]
-            calc = (pts_c / (pts_c + pts_f)) * 100 if (pts_c + pts_f) > 0 else 50
-            st.write(f"Probabilidade de vitória {t_casa}: **{calc:.1f}%**")
+            render_kpis(t_fora)
+
+        with tab2:
+            st.write("### Probabilidade de Vitória")
+            p1 = df[df["Equipa"] == t_casa]["Pts"].iloc[0]
+            p2 = df[df["Equipa"] == t_fora]["Pts"].iloc[0]
+            calc = (p1 / (p1 + p2)) * 100 if (p1 + p2) > 0 else 50
+            st.write(f"Vantagem Estatística para **{t_casa}**: {calc:.1f}%")
             st.progress(int(calc))
+    else:
+        st.error("Erro: Coluna 'Equipa' não encontrada ou planilha vazia.")
 
 # ---------------------------------------------------------
-# MÓDULO: FATORES EXTERNOS
+# MÓDULO: EXTERNOS (Captura 6811)
 # ---------------------------------------------------------
 else:
-    st.subheader("🌡️ Clima, Altitude & Momentum")
-    col_clima, col_graph = st.columns(2)
-    with col_clima:
-        st.select_slider("Condição", ["Sol", "Chuva", "Neve"])
-        alt = st.number_input("Altitude (m)", value=0)
-        if alt > 1500: st.warning("⚠️ Atenção: Performance física reduzida devido à altitude.")
-    with col_graph:
+    st.subheader("🌡️ Contexto Ambiental & Momentum")
+    col_x, col_y = st.columns(2)
+    with col_x:
+        st.select_slider("Clima", ["Sol", "Chuva", "Tempestade"])
+        st.number_input("Altitude (m)", value=0)
+    with col_y:
         st.line_chart(np.random.randn(10, 2))
